@@ -1,6 +1,6 @@
 {
   "name": "search-engine",
-  "version": "1.0.3",
+  "version": "1.0.4-0",
   "description": "Projeto em NodeJS para uma REST search-engine.",
   "main": "server.js",
   "scripts": {
