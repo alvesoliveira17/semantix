@@ -1,0 +1,68 @@
+node('docker_slave') {
+    def jobName = "${env.JOB_NAME}".split('/').last().toLowerCase()
+    def npmVersion
+
+    try{
+        stage('Semantix - Clonando repositório') {
+            deleteDir()
+            checkout scm
+        }
+
+        stage('Semantix - Build da imagem') {
+            npmVersion = nodeAction()
+            docker.build("${jobName}:$npmVersion")
+            gitPush()
+        }
+
+        stage('Semantix - Deploy do container.') {
+            dockerDeploy(
+              name           : "${jobName}",
+              tag            : "${npmVersion}",
+              containerPort  : "3000",
+              nodePort       : "3000"
+            )
+        }
+
+        if(currentBuild.result == null) {
+            currentBuild.result = "SUCCESS"
+        }
+    }
+    catch (err){
+        if(currentBuild.result == null) {
+            currentBuild.result = "FAILURE"
+        }
+        throw(err)
+    }
+    finally {
+    }
+}
+
+def dockerDeploy(Map args) {
+    sh(script:"IMG=${args.name} TAG=${args.tag} containerPort=${args.containerPort} nodePort=${args.nodePort} docker-compose up -d")
+}
+
+def nodeAction() {
+    sh("git checkout master")
+    gitMsg = sh(script: "git log -1 --pretty=format:'%B'", returnStdout: true)
+    if(gitMsg.contains('#patch')){
+      version = sh(script: 'npm version patch', returnStdout: true).trim()
+    }
+
+    else {
+      version = sh(script: 'npm version prerelease', returnStdout: true).trim()
+    }
+       return "$version"
+}
+
+def gitPush(){
+      withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'GitCredential', usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD']]) {
+      giturl = sh(script: 'git config remote.origin.url', returnStdout: true).trim().replace("https://","")
+        sh("git reset --hard")
+        sh("git checkout master")
+        sh("git config --global push.default matching")
+        sh("git config --global user.email 'teste@semantix.com.br'")
+        sh("git config --global user.name 'teste@semantix.com.br'")
+        sh("git push https://${env.GIT_USERNAME}:${env.GIT_PASSWORD}@$giturl")
+        sh("git push https://${env.GIT_USERNAME}:${env.GIT_PASSWORD}@$giturl --tags")
+      }
+}

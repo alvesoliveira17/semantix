@@ -1,0 +1,19 @@
+version: "2"
+
+services:
+  app:
+    image: ${IMG}:${TAG}
+    container_name: ${IMG}
+    ports:
+      - "${containerPort}:${nodePort}"
+    restart: always
+    networks:
+      - app
+    logging:
+     driver: "json-file"
+     options:
+      max-size: "100mb"
+      max-file: "5"
+
+networks:
+  app:
